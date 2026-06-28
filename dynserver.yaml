@@ -1,0 +1,12 @@
+# dynserver.yaml
+# All fields are optional; env vars override everything.
+#
+#   DYNSERVER_HOST         (string)
+#   DYNSERVER_PORT         (int)
+#   DYNSERVER_STATE_FILE   (string)
+#   DYNSERVER_SHUTDOWN_TTL (int, seconds)
+
+host: ""
+port: 8080
+state_file: "state.json"
+shutdown_ttl: 10

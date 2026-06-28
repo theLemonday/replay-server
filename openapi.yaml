@@ -1,0 +1,251 @@
+---
+openapi: 3.0.3
+info:
+  title: Dynamic Sub-Server Manager
+  description: >
+    Manages dynamic HTTP sub-servers identified by their port number.
+    Each sub-server binds dual-stack (0.0.0.0 and [::]) on its port.
+    Routes can be registered per sub-server with custom response bodies
+    and headers. Unregistered routes return 200 OK with an empty body.
+  version: 1.0.0
+
+paths:
+  /servers:
+    get:
+      operationId: listServers
+      summary: List all registered sub-servers
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubServer'
+
+    post:
+      operationId: registerServer
+      summary: Register a new sub-server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterServerRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubServer'
+        '409':
+          description: Port already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /servers/{port}:
+    get:
+      operationId: getServer
+      summary: Get a sub-server by port
+      parameters:
+        - $ref: '#/components/parameters/port'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubServer'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      operationId: deleteServer
+      summary: Stop and remove a sub-server
+      parameters:
+        - $ref: '#/components/parameters/port'
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /servers/{port}/routes:
+    get:
+      operationId: listRoutes
+      summary: List routes on a sub-server
+      parameters:
+        - $ref: '#/components/parameters/port'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Route'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      operationId: registerRoute
+      summary: Register a route on a sub-server
+      parameters:
+        - $ref: '#/components/parameters/port'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRouteRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '404':
+          description: Sub-server not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Route already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /servers/{port}/routes/{routeId}:
+    delete:
+      operationId: deleteRoute
+      summary: Remove a route from a sub-server
+      parameters:
+        - $ref: '#/components/parameters/port'
+        - name: routeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  parameters:
+    port:
+      name: port
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 9000
+
+  schemas:
+    RegisterServerRequest:
+      type: object
+      required: [port]
+      properties:
+        port:
+          type: integer
+          minimum: 1024
+          maximum: 65535
+          example: 9000
+        name:
+          type: string
+          example: my-service
+
+    SubServer:
+      type: object
+      properties:
+        port:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [running, stopped]
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Route'
+        created_at:
+          type: string
+          format: date-time
+
+    RegisterRouteRequest:
+      type: object
+      required: [method, path, response]
+      properties:
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+        path:
+          type: string
+          example: /hello
+        response:
+          $ref: '#/components/schemas/RouteResponse'
+
+    Route:
+      type: object
+      properties:
+        id:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        response:
+          $ref: '#/components/schemas/RouteResponse'
+
+    RouteResponse:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          default: 200
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        body:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
